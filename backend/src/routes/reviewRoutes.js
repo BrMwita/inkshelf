@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { createReview, getBookReviews } = require('../controllers/reviewController');
-const { protect } = require('../middleware/auth');
 
-router.post('/', protect, createReview);
-router.get('/book/:bookId', getBookReviews);
+router.get('/', (req, res) => {
+  res.json({ message: 'Reviews route - coming soon' });
+});
 
 module.exports = router;

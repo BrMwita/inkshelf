@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
+const pool = require('../config/db');
 
 const protect = async (req, res, next) => {
   let token;
@@ -9,13 +9,13 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
-      db.get('SELECT * FROM users WHERE id = ?', [decoded.id], (err, user) => {
-        if (err || !user) {
-          return res.status(401).json({ message: 'Not authorized' });
-        }
-        req.user = user;
-        next();
-      });
+      const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
+      if (result.rows.length === 0) {
+        return res.status(401).json({ message: 'Not authorized' });
+      }
+      
+      req.user = result.rows[0];
+      next();
     } catch (error) {
       return res.status(401).json({ message: 'Not authorized, token failed' });
     }

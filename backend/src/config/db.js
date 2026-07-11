@@ -1,83 +1,96 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 
-const dbPath = path.join(__dirname, '../../inkshelf.db');
-const db = new sqlite3.Database(dbPath);
-
-// Create tables
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT DEFAULT 'reader',
-    mpesaPhone TEXT,
-    walletBalance REAL DEFAULT 0,
-    profilePic TEXT,
-    bio TEXT,
-    isVerified INTEGER DEFAULT 0,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS books (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    authorId INTEGER NOT NULL,
-    description TEXT NOT NULL,
-    price REAL NOT NULL,
-    coverImage TEXT,
-    pdfUrl TEXT,
-    genre TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    avgRating REAL DEFAULT 0,
-    totalSales INTEGER DEFAULT 0,
-    totalRevenue REAL DEFAULT 0,
-    previewPages INTEGER DEFAULT 10,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (authorId) REFERENCES users(id)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    bookId INTEGER NOT NULL,
-    userId INTEGER NOT NULL,
-    amount REAL NOT NULL,
-    mpesaTransactionCode TEXT,
-    status TEXT DEFAULT 'pending',
-    downloadCount INTEGER DEFAULT 0,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (bookId) REFERENCES books(id),
-    FOREIGN KEY (userId) REFERENCES users(id)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS reviews (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    bookId INTEGER NOT NULL,
-    userId INTEGER NOT NULL,
-    rating INTEGER NOT NULL,
-    comment TEXT NOT NULL,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (bookId) REFERENCES books(id),
-    FOREIGN KEY (userId) REFERENCES users(id),
-    UNIQUE(bookId, userId)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS withdrawals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    authorId INTEGER NOT NULL,
-    amount REAL NOT NULL,
-    mpesaPhone TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (authorId) REFERENCES users(id)
-  )`);
-
-  console.log('✅ SQLite database initialized');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-module.exports = db;
+// Create tables
+const initDB = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(20) DEFAULT 'reader',
+        mpesa_phone VARCHAR(20),
+        wallet_balance DECIMAL(10,2) DEFAULT 0,
+        profile_pic TEXT,
+        bio TEXT,
+        is_verified BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS books (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        author_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        description TEXT NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
+        cover_image TEXT,
+        pdf_url TEXT,
+        genre VARCHAR(50) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        avg_rating DECIMAL(3,2) DEFAULT 0,
+        total_sales INTEGER DEFAULT 0,
+        total_revenue DECIMAL(10,2) DEFAULT 0,
+        preview_pages INTEGER DEFAULT 10,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        book_id INTEGER REFERENCES books(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        amount DECIMAL(10,2) NOT NULL,
+        mpesa_transaction_code VARCHAR(50),
+        status VARCHAR(20) DEFAULT 'pending',
+        download_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        book_id INTEGER REFERENCES books(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(book_id, user_id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS withdrawals (
+        id SERIAL PRIMARY KEY,
+        author_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        amount DECIMAL(10,2) NOT NULL,
+        mpesa_phone VARCHAR(20) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log('✅ PostgreSQL tables created');
+  } catch (error) {
+    console.error('❌ Database init error:', error.message);
+  }
+};
+
+initDB();
+
+module.exports = pool;
