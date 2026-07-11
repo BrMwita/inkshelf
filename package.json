@@ -1,0 +1,13 @@
+{
+  "name": "inkshelf",
+  "version": "1.0.0",
+  "description": "InkShelf - African Stories, Global Readers",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd backend && npm install && node src/server.js",
+    "postinstall": "cd backend && npm install"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
