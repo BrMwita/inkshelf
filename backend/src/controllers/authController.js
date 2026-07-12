@@ -1,75 +1,51 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
+const pool = require('../config/db');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// @desc    Register user
 exports.register = async (req, res) => {
   console.log('📝 Registration request received:', req.body);
   
   try {
     const { name, email, password, role } = req.body;
 
-    // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
     // Check if user exists
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
-      if (err) {
-        console.error('❌ Database query error:', err);
-        return res.status(500).json({ message: 'Database error' });
-      }
-      
-      if (user) {
-        console.log('⚠️ User already exists:', email);
-        return res.status(400).json({ message: 'User already exists' });
-      }
+    const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
-      try {
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Insert user
-        db.run(
-          'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-          [name, email, hashedPassword, role || 'reader'],
-          function(err) {
-            if (err) {
-              console.error('❌ Insert error:', err);
-              return res.status(500).json({ message: 'Failed to create user' });
-            }
+    const result = await pool.query(
+      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
+      [name, email, hashedPassword, role || 'reader']
+    );
 
-            console.log('✅ User created successfully:', { id: this.lastID, email });
-            
-            const token = generateToken(this.lastID);
-            
-            res.status(201).json({
-              _id: this.lastID,
-              name,
-              email,
-              role: role || 'reader',
-              token
-            });
-          }
-        );
-      } catch (hashError) {
-        console.error('❌ Password hashing error:', hashError);
-        res.status(500).json({ message: 'Server error' });
-      }
+    const user = result.rows[0];
+    console.log('✅ User created:', user);
+
+    res.status(201).json({
+      _id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      token: generateToken(user.id)
     });
   } catch (error) {
     console.error('❌ Registration error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Login user
 exports.login = async (req, res) => {
   console.log('📝 Login request received:', req.body.email);
   
@@ -80,95 +56,72 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Email and password required' });
     }
 
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
-      if (err) {
-        console.error('❌ Database error:', err);
-        return res.status(500).json({ message: 'Database error' });
-      }
-      
-      if (!user) {
-        console.log('⚠️ User not found:', email);
-        return res.status(400).json({ message: 'Invalid credentials' });
-      }
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
-      try {
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-          console.log('⚠️ Invalid password for:', email);
-          return res.status(400).json({ message: 'Invalid credentials' });
-        }
+    const user = result.rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
-        console.log('✅ Login successful:', email);
-        
-        res.json({
-          _id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          walletBalance: user.wallet_balance || 0,
-          token: generateToken(user.id)
-        });
-      } catch (compareError) {
-        console.error('❌ Password comparison error:', compareError);
-        res.status(500).json({ message: 'Server error' });
-      }
+    console.log('✅ Login successful:', email);
+    
+    res.json({
+      _id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      walletBalance: user.wallet_balance || 0,
+      token: generateToken(user.id)
     });
   } catch (error) {
     console.error('❌ Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get user profile
-exports.getProfile = (req, res) => {
-  db.get(
-    'SELECT id, name, email, role, mpesa_phone, wallet_balance, profile_pic, bio, is_verified FROM users WHERE id = ?',
-    [req.user.id],
-    (err, user) => {
-      if (err) {
-        console.error('❌ Profile error:', err);
-        return res.status(500).json({ message: 'Database error' });
-      }
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      res.json(user);
+exports.getProfile = async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, email, role, mpesa_phone, wallet_balance, profile_pic, bio, is_verified FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
-  );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-// @desc    Create admin user (temporary)
 exports.createAdmin = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
-      if (err) {
-        return res.status(500).json({ message: err.message });
-      }
-      if (user) {
-        return res.status(400).json({ message: 'User already exists' });
-      }
+    const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-      db.run(
-        'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        [name, email, hashedPassword, 'admin'],
-        function(err) {
-          if (err) {
-            return res.status(500).json({ message: err.message });
-          }
-          res.status(201).json({
-            _id: this.lastID,
-            name,
-            email,
-            role: 'admin',
-            token: generateToken(this.lastID)
-          });
-        }
-      );
+    const result = await pool.query(
+      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
+      [name, email, hashedPassword, 'admin']
+    );
+
+    const user = result.rows[0];
+    res.status(201).json({
+      _id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      token: generateToken(user.id)
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
