@@ -1,0 +1,18 @@
+cat > render.yaml << 'EOF'
+services:
+  - type: web
+    name: inkshelf
+    runtime: node
+    buildCommand: |
+      cd backend && npm install
+      cd ../frontend && npm install && npm run build
+    startCommand: cd backend && node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        value: inkshelf_super_secret_key_2026
+      - key: DATABASE_URL
+        value: postgresql://inkshelf_user:VdrCcr3sJU35fakEXo14MVKPHFiTaohj@dpg-d997q058nd3s73bbue9g-a/inkshelf
