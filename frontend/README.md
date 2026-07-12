@@ -1,16 +1,53 @@
-# React + Vite
+cat > README.md << 'EOF'
+# 📚 InkShelf - African Stories, Global Readers
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A digital publishing platform built for African authors to publish, sell, and distribute eBooks. Empowering writers to reach global readers while keeping more of their earnings.
 
-Currently, two official plugins are available:
+![InkShelf Banner](https://via.placeholder.com/1200x400/1A1A1A/D96C2B?text=InkShelf)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 🚀 Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### For Authors
+- 📝 **Publish eBooks** - Upload your books with cover images and descriptions
+- 💰 **Set Your Price** - Control how much you earn per sale
+- 📊 **Track Sales** - Real-time analytics dashboard
+- 👤 **Author Profile** - Build your brand and connect with readers
+- 💳 **Receive Payments** - Get paid directly via M-Pesa
 
-## Expanding the ESLint configuration
+### For Readers
+- 📖 **Browse Books** - Discover books by genre, author, or title
+- ⭐ **Reviews & Ratings** - Help others discover great books
+- 💳 **Buy Books** - Pay via M-Pesa (Kenya) or international payment methods
+- 📱 **Responsive Design** - Read on any device
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### For Admin
+- 🛡️ **Book Approval** - Ensure content quality
+- 👥 **User Management** - Manage authors and readers
+- 💰 **Sales Monitoring** - Track platform performance
+- 📊 **Analytics Dashboard** - View key metrics
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- ⚛️ **React** - UI Framework
+- 🎨 **Tailwind CSS** - Styling
+- 🌐 **React Router** - Navigation
+- 🔌 **Axios** - API Calls
+
+### Backend
+- 🟢 **Node.js** - Runtime
+- 🚀 **Express.js** - Web Framework
+- 🗄️ **SQLite** - Database
+- 🔐 **JWT** - Authentication
+- 📦 **bcryptjs** - Password Hashing
+
+### Payments
+- 💳 **M-Pesa** - Manual/Till Confirmation (API integration coming soon)
+
+---
+
+## 🏗️ Project Structure
